@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>guruguruhyena — NFT Collection</title>
+  <meta name="description" content="guruguruhyena's NFT collection on Zora Network & Base">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+  <style>
+    :root {
+      --acc: #22c55e;
+      --bg: #111; --bg2: #1a1a1a; --bg3: #222;
+      --border: rgba(255,255,255,.08);
+      --text: #fff; --text2: #aaa; --text3: #555;
+      --shadow: rgba(0,0,0,.6);
+    }
+    .light {
+      --bg: #f5f5f5; --bg2: #fff; --bg3: #ebebeb;
+      --border: rgba(0,0,0,.1);
+      --text: #0a0a0a; --text2: #555; --text3: #999;
+      --shadow: rgba(0,0,0,.12);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; transition: background .2s, color .2s; }
+    button { cursor: pointer; font-family: inherit; }
+    a { color: inherit; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+    /* NAV */
+    .znav { height: 54px; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 24px; gap: 10px; position: sticky; top: 0; z-index: 50; backdrop-filter: blur(12px); transition: background .2s, border-color .2s; }
+    .znav-logo { display: flex; align-items: center; gap: 8px; flex: 1; }
+    .znav-logo span { font-size: 16px; font-weight: 700; letter-spacing: -.02em; }
+    .znav-zorb { width: 22px; height: 22px; border-radius: 50%; background: conic-gradient(#9b59b6,#3498db,#2ecc71,#f1c40f,#e74c3c,#9b59b6); flex-shrink: 0; }
+    .zbtn { border: 1px solid var(--border); border-radius: 8px; padding: 6px 14px; font-size: 12px; background: var(--bg3); color: var(--text2); transition: all .15s; }
+    .zbtn:hover { opacity: .8; }
+    .zbtn-primary { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 600; }
+    .zbtn-accent { border-color: var(--acc); color: var(--text); background: transparent; font-weight: 600; font-size: 13px; padding: 7px 18px; }
+    .zbtn-accent.following { background: var(--bg3); border-color: var(--border); color: var(--text3); font-weight: 400; }
+    .zicon-btn { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg3); color: var(--text2); display: flex; align-items: center; justify-content: center; transition: all .15s; flex-shrink: 0; }
+    .zicon-btn:hover { color: var(--text); border-color: var(--text2); }
+    .zicon-btn.active { color: var(--text); border-color: var(--text2); background: var(--bg2); }
+    .wallet-addr { font-family: monospace; font-size: 11px; display: flex; align-items: center; gap: 6px; }
+    .wallet-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--acc); box-shadow: 0 0 6px var(--acc); }
+
+    /* BANNER */
+    .zbanner { height: 160px; background: linear-gradient(135deg,#0d0120 0%,#1a0535 45%,#120028 75%,#080808 100%); position: relative; overflow: visible; z-index: 1; }
+    .light .zbanner { background: linear-gradient(135deg,#e8d5f5 0%,#c8a8e9 45%,#d4b8f0 75%,#ede0f8 100%); }
+    .zbanner-orb1 { position: absolute; top: 10px; right: 80px; width: 200px; height: 200px; border-radius: 50%; background: radial-gradient(circle,rgba(34,197,94,.15) 0%,transparent 70%); }
+    .zbanner-orb2 { position: absolute; bottom: -30px; left: 35%; width: 120px; height: 120px; border-radius: 50%; background: radial-gradient(circle,rgba(85,51,170,.18) 0%,transparent 70%); }
+
+    /* PROFILE */
+    .zprofile { padding: 0 24px; border-bottom: 1px solid var(--border); position: relative; z-index: 2; transition: border-color .2s; max-width: 1200px; margin: 0 auto; }
+    .zprofile-top { display: flex; align-items: flex-end; justify-content: space-between; margin-top: -34px; margin-bottom: 14px; }
+    .zavatar { width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg,rgba(34,197,94,.6),#5533aa); border: 3px solid var(--bg); display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 700; flex-shrink: 0; position: relative; z-index: 10; transition: border-color .2s; overflow: hidden; }
+    .zavatar img { width: 100%; height: 100%; object-fit: cover; }
+    .zactions { display: flex; gap: 8px; align-items: center; padding-bottom: 4px; position: relative; }
+    .ztoast { position: absolute; top: -50px; right: 0; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; font-size: 11px; color: var(--text2); white-space: nowrap; font-family: monospace; opacity: 0; transition: opacity .3s; pointer-events: none; }
+    .ztoast.show { opacity: 1; }
+    .zprofile-body { display: flex; gap: 24px; align-items: flex-end; padding-bottom: 18px; }
+    .zprofile-left { flex: 1; min-width: 0; }
+    .zprofile-right { flex-shrink: 0; width: 360px; display: flex; flex-direction: column; gap: 5px; }
+    .zname { font-size: 20px; font-weight: 700; letter-spacing: -.01em; margin-bottom: 2px; }
+    .zhandle { font-size: 12px; color: var(--text3); font-family: monospace; margin-bottom: 9px; }
+    .zbio { font-size: 13px; color: var(--text2); line-height: 1.6; margin-bottom: 10px; max-width: 380px; }
+    .zwebsite { font-size: 12px; color: var(--acc); display: inline-block; text-decoration: none; }
+    .zwebsite:hover { text-decoration: underline; }
+
+    /* STAT BOXES */
+    .zstat-box { border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; display: flex; align-items: center; background: var(--bg2); transition: background .2s, border-color .2s; }
+    .zstat-div { width: 1px; background: var(--border); align-self: stretch; margin: 0 11px; flex-shrink: 0; }
+    .zstat-item { display: flex; align-items: baseline; gap: 5px; white-space: nowrap; }
+    .zstat-val { font-size: 13px; font-weight: 600; }
+    .zstat-lbl { font-size: 10px; color: var(--text3); font-family: monospace; }
+    .zcoin-delta { font-size: 10px; color: var(--acc); font-family: monospace; }
+    .zbadge { display: inline-flex; align-items: center; gap: 3px; border-radius: 5px; padding: 2px 7px; font-size: 10px; font-family: monospace; }
+    .zbadge-fc { background: rgba(130,80,255,.15); border: 1px solid rgba(130,80,255,.22); color: #9b6fff; }
+    .zbadge-tw { background: rgba(29,161,242,.12); border: 1px solid rgba(29,161,242,.22); color: #4d9fff; }
+    .light .zbadge-fc { background: rgba(130,80,255,.1); border-color: rgba(130,80,255,.3); }
+    .light .zbadge-tw { background: rgba(29,161,242,.08); border-color: rgba(29,161,242,.3); }
+
+    /* TABS */
+    .ztabs-wrap { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+    .ztabs { display: flex; border-bottom: 1px solid var(--border); margin: 0 -24px; padding-left: 24px; }
+    .ztab { background: none; border: none; border-bottom: 2px solid transparent; color: var(--text3); font-size: 13px; padding: 10px 18px; margin-bottom: -1px; font-weight: 400; transition: color .15s; }
+    .ztab.active { color: var(--text); font-weight: 600; border-bottom-color: var(--acc); }
+    .ztab:hover { color: var(--text2); }
+
+    /* VIEW BAR */
+    .zview-bar { display: flex; align-items: center; gap: 8px; padding: 10px 24px 4px; max-width: 1200px; margin: 0 auto; }
+    .zview-label { font-size: 11px; color: var(--text3); font-family: monospace; flex: 1; }
+
+    /* GRID */
+    .zgrid-wrap { max-width: 1200px; margin: 0 auto; padding: 8px 24px 32px; }
+    .zgrid { display: grid; gap: 12px; align-items: start; }
+    .zgrid-col { display: flex; flex-direction: column; gap: 12px; }
+
+    /* CARD */
+    .zcard { border-radius: 12px; overflow: hidden; background: var(--bg2); transition: transform .25s, box-shadow .25s, background .2s; }
+    .zcard.imgonly { background: transparent; border-radius: 8px; }
+    .zcard:hover { transform: translateY(-4px); box-shadow: 0 16px 40px var(--shadow); }
+    .zcard-img { position: relative; overflow: hidden; }
+    .zcard-img.square { padding-bottom: 100%; height: 0; }
+    .zcard-img.square img, .zcard-img.square .zcard-placeholder { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+    .zcard-img.natural img, .zcard-img.natural .zcard-placeholder { width: 100%; display: block; }
+    .zcard-img img { transition: transform .4s; }
+    .zcard:hover .zcard-img img { transform: scale(1.05); }
+    .zcard-placeholder { background: linear-gradient(135deg, #1a0a2e, #0a1a3e); display: flex; align-items: center; justify-content: center; }
+    .zcard-placeholder.natural { height: 180px; }
+    .zcard-overlay { position: absolute; inset: 0; background: rgba(0,0,0,.7); backdrop-filter: blur(4px); opacity: 0; transition: opacity .22s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .zcard:hover .zcard-overlay { opacity: 1; }
+    .zcollect { background: var(--acc); color: #000; border: none; border-radius: 8px; padding: 9px 20px; font-size: 13px; font-weight: 600; }
+    .zcollect:hover { opacity: .9; }
+    .zlisted-btn { background: rgba(255,255,255,.12); color: #ccc; border: none; border-radius: 8px; padding: 9px 20px; font-size: 13px; }
+    .light .zlisted-btn { background: rgba(0,0,0,.08); color: #888; }
+    .zcard-info { padding: 11px 13px 13px; }
+    .zcard.imgonly .zcard-info { display: none; }
+    .zcard-title { font-size: 13px; font-weight: 500; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: start; gap: 6px; }
+    .zcard-title span { flex: 1; line-height: 1.3; }
+    .zchainbadge { font-size: 9px; font-family: monospace; font-weight: 700; letter-spacing: .07em; padding: 2px 7px; border-radius: 4px; flex-shrink: 0; }
+    .chain-zora { background: rgba(90,75,220,.18); color: #9b8fff; }
+    .chain-base { background: rgba(0,82,255,.15); color: #5b9fff; }
+    .light .chain-zora { background: rgba(90,75,220,.12); color: #6650d8; }
+    .light .chain-base { background: rgba(0,82,255,.1); color: #1a5cd6; }
+    .zcard-sub { display: flex; justify-content: space-between; font-size: 11px; }
+    .zcard-col { color: var(--text3); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
+    .zcard-price { color: var(--acc); font-family: monospace; font-weight: 600; white-space: nowrap; }
+
+    /* LOADING */
+    .zloading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 24px; gap: 16px; }
+    .zspinner { width: 32px; height: 32px; border: 2px solid var(--border); border-top-color: var(--acc); border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .zempty { text-align: center; padding: 80px 24px; color: var(--text3); font-size: 14px; }
+
+    /* EDIT PANEL */
+    .zedit { position: fixed; right: 0; top: 0; bottom: 0; width: 280px; background: var(--bg); border-left: 1px solid var(--border); padding: 24px; overflow-y: auto; z-index: 100; transform: translateX(100%); transition: transform .25s ease, background .2s, border-color .2s; }
+    .zedit.open { transform: translateX(0); }
+    .zedit-title { font-size: 15px; font-weight: 600; margin-bottom: 22px; display: flex; justify-content: space-between; align-items: center; }
+    .zedit-close { background: none; border: none; color: var(--text3); font-size: 22px; line-height: 1; }
+    .zedit-lbl { font-size: 10px; letter-spacing: .1em; color: var(--text3); margin-bottom: 7px; text-transform: uppercase; font-family: monospace; display: block; }
+    .zedit-field { margin-bottom: 20px; }
+    .zedit-inp { width: 100%; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 11px; color: var(--text); font-size: 13px; outline: none; transition: border-color .15s; }
+    .zedit-inp:focus { border-color: var(--acc); }
+    .zedit-colors { display: flex; gap: 8px; flex-wrap: wrap; }
+    .zedit-color { width: 28px; height: 28px; border-radius: 50%; border: 3px solid transparent; outline: none; transition: transform .15s; }
+    .zedit-color.active { border-color: var(--text); transform: scale(1.18); }
+    .zedit-note { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 13px; font-size: 11px; color: var(--text3); line-height: 1.65; margin-top: 8px; }
+    .zedit-note strong { color: var(--text2); }
+
+    /* RESPONSIVE */
+    @media (max-width: 700px) {
+      .zprofile-body { flex-direction: column; align-items: stretch; }
+      .zprofile-right { width: 100%; }
+      .znav { padding: 0 16px; }
+      .zprofile { padding: 0 16px; }
+      .zgrid-wrap { padding: 8px 16px 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav class="znav">
+  <div class="znav-logo">
+    <div class="znav-zorb"></div>
+    <span id="navTitle">zora</span>
+  </div>
+  <button class="zbtn" id="editBtn" style="display:none">✦ 編集</button>
+
+  <!-- ダーク/ライト -->
+  <button class="zicon-btn" id="themeBtn" title="ダーク/ライト切り替え">
+    <svg id="iconMoon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1111.21 3a7 7 0 109.79 9.79z"/></svg>
+    <svg id="iconSun"  width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+  </button>
+
+  <button class="zbtn zbtn-primary" id="connectBtn">ウォレット接続</button>
+  <button class="zbtn wallet-addr" id="disconnectBtn" style="display:none">
+    <span class="wallet-dot"></span>
+    <span id="walletLabel">0x...</span>
+  </button>
+</nav>
+
+<!-- ── BANNER ── -->
+<div class="zbanner"><div class="zbanner-orb1"></div><div class="zbanner-orb2"></div></div>
+
+<!-- ── PROFILE ── -->
+<div class="zprofile">
+  <div class="zprofile-top">
+    <div class="zavatar" id="avatarEl"><span id="avatarText">GG</span></div>
+    <div class="zactions">
+      <div class="ztoast" id="toast">✓ Farcasterでフォローしました</div>
+      <button class="zbtn zbtn-accent" id="followBtn">Follow</button>
+      <button class="zbtn" style="padding:7px 13px;font-size:16px" onclick="navigator.share && navigator.share({title:document.title, url:location.href})">···</button>
+    </div>
+  </div>
+
+  <div class="zprofile-body">
+    <div class="zprofile-left">
+      <div class="zname" id="nameEl">guruguruhyena</div>
+      <div class="zhandle">@<span id="handleEl">guruguruhyena</span></div>
+      <div class="zbio" id="bioEl">Digital artist — exploring form and identity<br>through abstraction on Base &amp; Zora Network.</div>
+      <a class="zwebsite" id="websiteEl" href="#" target="_blank">🔗 guruguruhyena.xyz</a>
+    </div>
+
+    <div class="zprofile-right">
+      <!-- Box 1 -->
+      <div class="zstat-box">
+        <div class="zstat-item">
+          <span class="zstat-val" id="coinVal">—</span>
+          <span class="zcoin-delta" id="coinDelta"></span>
+          <span class="zstat-lbl">creator coin</span>
+        </div>
+        <div class="zstat-div"></div>
+        <div class="zstat-item">
+          <span class="zstat-val" id="holdersVal">—</span>
+          <span class="zstat-lbl">holders</span>
+        </div>
+        <div class="zstat-div"></div>
+        <div class="zstat-item">
+          <span class="zstat-val" id="holdingsVal">—</span>
+          <span class="zstat-lbl">holdings</span>
+        </div>
+      </div>
+      <!-- Box 2 -->
+      <div class="zstat-box">
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <div class="zstat-item">
+            <span class="zstat-val" id="followerCount">—</span>
+            <span class="zstat-lbl">followers</span>
+          </div>
+          <span class="zbadge zbadge-fc" id="fcBadge" style="display:none">⬡ —</span>
+          <span class="zbadge zbadge-tw" id="twBadge" style="display:none">𝕏 —</span>
+        </div>
+        <div class="zstat-div"></div>
+        <div class="zstat-item">
+          <span class="zstat-val" id="followingCount">—</span>
+          <span class="zstat-lbl">following</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ztabs">
+    <button class="ztab active" data-tab="created">Created</button>
+    <button class="ztab" data-tab="collected">Collected</button>
+    <button class="ztab" data-tab="listed">Listed</button>
+  </div>
+</div>
+
+<!-- ── VIEW BAR ── -->
+<div class="zview-bar">
+  <span class="zview-label" id="viewLabel">loading...</span>
+  <div style="display:flex;gap:6px">
+    <button class="zicon-btn" id="ratioBtn" title="正方形 / 実比率">
+      <svg id="icoSquare" width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1" fill="currentColor"/><rect x="9" y="1" width="6" height="6" rx="1" fill="currentColor"/><rect x="1" y="9" width="6" height="6" rx="1" fill="currentColor"/><rect x="9" y="9" width="6" height="6" rx="1" fill="currentColor"/></svg>
+      <svg id="icoNatural" width="14" height="14" viewBox="0 0 16 16" fill="none" style="display:none"><rect x="1" y="3" width="6" height="10" rx="1" fill="currentColor"/><rect x="9" y="1" width="6" height="5" rx="1" fill="currentColor"/><rect x="9" y="8" width="6" height="7" rx="1" fill="currentColor"/></svg>
+    </button>
+    <button class="zicon-btn" id="imgOnlyBtn" title="画像のみ">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="4" height="4" rx=".8" fill="currentColor"/><rect x="6" y="1" width="4" height="4" rx=".8" fill="currentColor"/><rect x="11" y="1" width="4" height="4" rx=".8" fill="currentColor"/><rect x="1" y="6" width="4" height="4" rx=".8" fill="currentColor"/><rect x="6" y="6" width="4" height="4" rx=".8" fill="currentColor"/><rect x="11" y="6" width="4" height="4" rx=".8" fill="currentColor"/><rect x="1" y="11" width="4" height="4" rx=".8" fill="currentColor"/><rect x="6" y="11" width="4" height="4" rx=".8" fill="currentColor"/><rect x="11" y="11" width="4" height="4" rx=".8" fill="currentColor"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ── GRID ── -->
+<div class="zgrid-wrap">
+  <div class="zgrid" id="gridEl" style="grid-template-columns:repeat(3,minmax(0,1fr))"></div>
+</div>
+
+<!-- ── EDIT PANEL ── -->
+<div class="zedit" id="editPanel">
+  <div class="zedit-title">プロフィール設定 <button class="zedit-close" id="editClose">×</button></div>
+  <div class="zedit-field"><label class="zedit-lbl">表示名</label><input class="zedit-inp" id="inputName" value="guruguruhyena"></div>
+  <div class="zedit-field"><label class="zedit-lbl">ハンドル</label><input class="zedit-inp" id="inputHandle" value="guruguruhyena"></div>
+  <div class="zedit-field"><label class="zedit-lbl">プロフィール</label><textarea class="zedit-inp" id="inputBio" rows="3" style="resize:none;line-height:1.5">Digital artist — exploring form and identity
+through abstraction on Base &amp; Zora Network.</textarea></div>
+  <div class="zedit-field"><label class="zedit-lbl">ウェブサイト</label><input class="zedit-inp" id="inputWeb" value="guruguruhyena.xyz"></div>
+  <div class="zedit-field">
+    <label class="zedit-lbl">アクセントカラー</label>
+    <div class="zedit-colors" id="colorPicker">
+      <button class="zedit-color active" style="background:#22c55e" data-color="#22c55e"></button>
+      <button class="zedit-color" style="background:#ec4899" data-color="#ec4899"></button>
+      <button class="zedit-color" style="background:#f59e0b" data-color="#f59e0b"></button>
+      <button class="zedit-color" style="background:#3b82f6" data-color="#3b82f6"></button>
+      <button class="zedit-color" style="background:#a855f7" data-color="#a855f7"></button>
+      <button class="zedit-color" style="background:#06b6d4" data-color="#06b6d4"></button>
+      <button class="zedit-color" style="background:#ef4444" data-color="#ef4444"></button>
+      <button class="zedit-color" style="background:#eab308" data-color="#eab308"></button>
+    </div>
+  </div>
+  <div class="zedit-note">
+    <strong>ウォレット接続後</strong>に編集ボタンが表示されます。<br><br>
+    🔗 <strong>Farcaster連携</strong><br>
+    フォローはFarcasterプロトコル経由でZoraのフォロワー数と同期されます。
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  設定 — ここを変更してください
+// ============================================================
+const CONFIG = {
+  handle:      'guruguruhyena',
+  displayName: 'guruguruhyena',
+  bio:         'Digital artist — exploring form and identity\nthrough abstraction on Base & Zora Network.',
+  website:     'guruguruhyena.xyz',
+  accent:      '#22c55e',
+  // オーナーのウォレットアドレス（接続したウォレットがこれと一致したらオーナーモード）
+  ownerAddress: '',   // 例: '0xYourWalletAddress'
+};
+
+// ============================================================
+//  Reservoir API — NFTを取得
+// ============================================================
+async function fetchNFTs(address, chain) {
+  const base = chain === 'zora'
+    ? 'https://api-zora.reservoir.tools'
+    : 'https://api-base.reservoir.tools';
+  try {
+    const res = await fetch(
+      `${base}/users/${address}/tokens/v7?limit=50&includeTopBid=true`,
+      { headers: { 'accept': 'application/json' } }
+    );
+    const data = await res.json();
+    return (data.tokens || []).map(t => ({
+      id:         t.token.tokenId,
+      name:       t.token.name || `#${t.token.tokenId}`,
+      collection: t.token.collection?.name || '',
+      image:      t.token.imageSmall || t.token.image || null,
+      chain,
+      price:      t.market?.floorAsk?.price?.amount?.decimal || null,
+      listed:     !!t.market?.floorAsk?.price,
+      contract:   t.token.contract,
+      tokenId:    t.token.tokenId,
+    }));
+  } catch(e) {
+    console.warn('Reservoir fetch error:', e);
+    return [];
+  }
+}
+
+// ============================================================
+//  Zora Profile API
+// ============================================================
+async function fetchZoraProfile(identifier) {
+  try {
+    const res = await fetch('https://api.zora.co/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: `{
+        profile(identifier:"${identifier}"){
+          displayName bio website
+          avatar{ medium }
+          socialAccounts{
+            farcaster{ followerCount }
+            twitter{ followerCount }
+          }
+          creatorCoin{ marketCap marketCapDelta24h }
+        }
+      }` })
+    });
+    const d = await res.json();
+    return d?.data?.profile || null;
+  } catch(e) {
+    return null;
+  }
+}
+
+// ============================================================
+//  State
+// ============================================================
+let walletAddress = null;
+let isOwner       = false;
+let isFollowing   = false;
+let followerCount = 0;
+let ratio         = 'square';
+let imgOnly       = false;
+let isDark        = true;
+let allNFTs       = { created: [], collected: [], listed: [] };
+let accent        = CONFIG.accent;
+
+// ============================================================
+//  Helpers
+// ============================================================
+function fmtNum(n) {
+  if (!n && n !== 0) return '—';
+  n = Number(n);
+  return n >= 1000 ? (n/1000).toFixed(1) + 'K' : String(n);
+}
+function shortAddr(addr) {
+  return addr.slice(0,6) + '...' + addr.slice(-4);
+}
+function setAccent(c) {
+  accent = c;
+  document.documentElement.style.setProperty('--acc', c);
+  document.getElementById('avatarEl').style.background =
+    `linear-gradient(135deg,${c}88,#5533aa)`;
+  if (!isFollowing)
+    document.getElementById('followBtn').style.borderColor = c;
+  document.querySelectorAll('.zedit-color').forEach(b =>
+    b.classList.toggle('active', b.dataset.color === c));
+}
+
+// ============================================================
+//  Profile
+// ============================================================
+function applyProfile(p) {
+  document.getElementById('nameEl').textContent    = p.displayName || CONFIG.displayName;
+  document.getElementById('handleEl').textContent  = p.handle      || CONFIG.handle;
+  document.getElementById('bioEl').innerHTML       = (p.bio || CONFIG.bio).replace(/\n/g,'<br>');
+  const webEl = document.getElementById('websiteEl');
+  const web   = p.website || CONFIG.website;
+  webEl.textContent = '🔗 ' + web;
+  webEl.href = web.startsWith('http') ? web : 'https://' + web;
+  document.getElementById('avatarText').textContent =
+    (p.displayName || CONFIG.displayName).slice(0,2).toUpperCase();
+  if (p.avatar?.medium) {
+    document.getElementById('avatarEl').innerHTML =
+      `<img src="${p.avatar.medium}" alt="avatar">`;
+  }
+  if (p.creatorCoin?.marketCap) {
+    const mc = Number(p.creatorCoin.marketCap);
+    document.getElementById('coinVal').textContent = '$' + fmtNum(mc);
+    const delta = p.creatorCoin.marketCapDelta24h;
+    if (delta) {
+      const dEl = document.getElementById('coinDelta');
+      dEl.textContent = (Number(delta) > 0 ? '+' : '') + Number(delta).toFixed(1) + '%';
+      dEl.style.color = Number(delta) >= 0 ? 'var(--acc)' : '#ef4444';
+    }
+  }
+  if (p.socialAccounts?.farcaster?.followerCount) {
+    const fc = document.getElementById('fcBadge');
+    fc.textContent = '⬡ ' + fmtNum(p.socialAccounts.farcaster.followerCount);
+    fc.style.display = '';
+  }
+  if (p.socialAccounts?.twitter?.followerCount) {
+    const tw = document.getElementById('twBadge');
+    tw.textContent = '𝕏 ' + fmtNum(p.socialAccounts.twitter.followerCount);
+    tw.style.display = '';
+  }
+}
+
+// ============================================================
+//  Grid
+// ============================================================
+function card(nft) {
+  const sq   = ratio === 'square';
+  const cc   = nft.chain === 'zora' ? 'chain-zora' : 'chain-base';
+  const cl   = nft.chain === 'zora' ? 'ZORA' : 'BASE';
+  const osUrl = `https://opensea.io/assets/${nft.chain === 'zora' ? 'zora' : 'base'}/${nft.contract}/${nft.tokenId}`;
+  let overlay = '';
+  if (isOwner) {
+    overlay = nft.listed
+      ? `<button class="zlisted-btn" onclick="window.open('${osUrl}','_blank')">出品管理 →</button>`
+      : `<button class="zcollect" onclick="window.open('${osUrl}','_blank')">出品する</button>`;
+  } else {
+    overlay = nft.listed && nft.price
+      ? `<button class="zcollect" onclick="window.open('${osUrl}','_blank')">Collect · ${Number(nft.price).toFixed(4)} Ξ</button>`
+      : `<span style="font-size:12px;color:#777;font-family:monospace">not listed</span>`;
+  }
+  const imgSrc = nft.image
+    ? (sq
+        ? `<img src="${nft.image}" alt="${nft.name}" loading="lazy">`
+        : `<img src="${nft.image}" alt="${nft.name}" loading="lazy" style="width:100%;display:block">`)
+    : `<div class="zcard-placeholder${sq?'':' natural'}"></div>`;
+  const imgWrap = `<div class="zcard-img ${sq?'square':'natural'}">${imgSrc}<div class="zcard-overlay">${overlay}</div></div>`;
+  const info = imgOnly ? '' : `<div class="zcard-info">
+    <div class="zcard-title"><span>${nft.name}</span><span class="zchainbadge ${cc}">${cl}</span></div>
+    <div class="zcard-sub"><span class="zcard-col">${nft.collection}</span>${nft.price?`<span class="zcard-price">${Number(nft.price).toFixed(4)} Ξ</span>`:''}</div>
+  </div>`;
+  return `<div class="zcard${imgOnly?' imgonly':''}">${imgWrap}${info}</div>`;
+}
+
+function renderGrid(tab) {
+  const grid  = document.getElementById('gridEl');
+  const items = allNFTs[tab] || [];
+  const cols  = imgOnly ? 4 : 3;
+  grid.style.gridTemplateColumns = `repeat(${cols},minmax(0,1fr))`;
+  document.getElementById('viewLabel').textContent = `${items.length} items`;
+  if (!items.length) {
+    grid.innerHTML = '<div class="zempty">作品がありません</div>';
+    return;
+  }
+  grid.innerHTML = Array.from({ length: cols }, (_, ci) =>
+    items.filter((_, i) => i % cols === ci)
+  ).map(col => `<div class="zgrid-col">${col.map(n => card(n)).join('')}</div>`).join('');
+}
+
+function currentTab() {
+  return document.querySelector('.ztab.active')?.dataset.tab || 'created';
+}
+
+// ============================================================
+//  Wallet Connect
+// ============================================================
+async function connectWallet() {
+  if (!window.ethereum) {
+    alert('MetaMaskがインストールされていません。\nhttps://metamask.io からインストールしてください。');
+    return;
+  }
+  try {
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    walletAddress  = accounts[0];
+    isOwner        = CONFIG.ownerAddress
+      ? walletAddress.toLowerCase() === CONFIG.ownerAddress.toLowerCase()
+      : true; // ownerAddress未設定なら接続者をオーナー扱い
+
+    document.getElementById('connectBtn').style.display    = 'none';
+    document.getElementById('disconnectBtn').style.display = '';
+    document.getElementById('walletLabel').textContent     = shortAddr(walletAddress);
+    document.getElementById('followBtn').style.display     = isOwner ? 'none' : '';
+    if (isOwner) document.getElementById('editBtn').style.display = '';
+
+    // NFTを取得
+    document.getElementById('gridEl').innerHTML = '<div class="zloading"><div class="zspinner"></div><p style="color:var(--text3);font-size:13px">NFTを読み込み中...</p></div>';
+    const [zoraTokens, baseTokens] = await Promise.all([
+      fetchNFTs(walletAddress, 'zora'),
+      fetchNFTs(walletAddress, 'base'),
+    ]);
+    const all = [...zoraTokens, ...baseTokens];
+    allNFTs = {
+      created:   all, // 本実装では creator フィルタリングが必要
+      collected: all,
+      listed:    all.filter(n => n.listed),
+    };
+    // タブのカウントを更新
+    document.querySelector('[data-tab="created"]').textContent  = `Created (${allNFTs.created.length})`;
+    document.querySelector('[data-tab="collected"]').textContent = `Collected (${allNFTs.collected.length})`;
+    document.querySelector('[data-tab="listed"]').textContent   = `Listed (${allNFTs.listed.length})`;
+
+    renderGrid(currentTab());
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+function disconnectWallet() {
+  walletAddress = null; isOwner = false;
+  document.getElementById('connectBtn').style.display    = '';
+  document.getElementById('disconnectBtn').style.display = 'none';
+  document.getElementById('editBtn').style.display       = 'none';
+  document.getElementById('followBtn').style.display     = '';
+  renderGrid(currentTab());
+}
+
+// ============================================================
+//  Events
+// ============================================================
+document.getElementById('connectBtn').addEventListener('click', connectWallet);
+document.getElementById('disconnectBtn').addEventListener('click', disconnectWallet);
+
+document.getElementById('themeBtn').addEventListener('click', function() {
+  isDark = !isDark;
+  document.body.classList.toggle('light', !isDark);
+  document.getElementById('iconMoon').style.display = isDark ? 'block' : 'none';
+  document.getElementById('iconSun').style.display  = isDark ? 'none'  : 'block';
+});
+
+document.getElementById('ratioBtn').addEventListener('click', function() {
+  ratio = ratio === 'square' ? 'natural' : 'square';
+  document.getElementById('icoSquare').style.display  = ratio === 'square'  ? 'block' : 'none';
+  document.getElementById('icoNatural').style.display = ratio === 'natural' ? 'block' : 'none';
+  this.classList.toggle('active', ratio === 'natural');
+  renderGrid(currentTab());
+});
+
+document.getElementById('imgOnlyBtn').addEventListener('click', function() {
+  imgOnly = !imgOnly;
+  this.classList.toggle('active', imgOnly);
+  renderGrid(currentTab());
+});
+
+document.querySelectorAll('.ztab').forEach(b => b.addEventListener('click', function() {
+  document.querySelectorAll('.ztab').forEach(x => x.classList.remove('active'));
+  this.classList.add('active');
+  renderGrid(this.dataset.tab);
+}));
+
+document.getElementById('followBtn').addEventListener('click', function() {
+  isFollowing = !isFollowing;
+  followerCount += isFollowing ? 1 : -1;
+  this.textContent = isFollowing ? 'Following' : 'Follow';
+  this.classList.toggle('following', isFollowing);
+  if (!isFollowing) this.style.borderColor = accent;
+  document.getElementById('followerCount').textContent = fmtNum(followerCount);
+  if (isFollowing) {
+    const t = document.getElementById('toast');
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+});
+
+document.getElementById('editBtn').addEventListener('click', function() {
+  document.getElementById('editPanel').classList.toggle('open');
+});
+document.getElementById('editClose').addEventListener('click', () =>
+  document.getElementById('editPanel').classList.remove('open'));
+
+document.getElementById('inputName').addEventListener('input', function() {
+  document.getElementById('nameEl').textContent      = this.value;
+  document.getElementById('avatarText').textContent  = this.value.slice(0,2).toUpperCase();
+});
+document.getElementById('inputHandle').addEventListener('input', function() {
+  document.getElementById('handleEl').textContent = this.value;
+});
+document.getElementById('inputBio').addEventListener('input', function() {
+  document.getElementById('bioEl').innerHTML = this.value.replace(/\n/g,'<br>');
+});
+document.getElementById('inputWeb').addEventListener('input', function() {
+  const w = document.getElementById('websiteEl');
+  w.textContent = '🔗 ' + this.value;
+  w.href = this.value.startsWith('http') ? this.value : 'https://' + this.value;
+});
+document.querySelectorAll('.zedit-color').forEach(btn =>
+  btn.addEventListener('click', function() { setAccent(this.dataset.color); }));
+
+// ============================================================
+//  Init
+// ============================================================
+(async () => {
+  // アクセントカラー適用
+  document.documentElement.style.setProperty('--acc', accent);
+
+  // Zoraプロフィールを取得（APIが使えれば実データ、なければデフォルト）
+  const profile = await fetchZoraProfile(CONFIG.handle);
+  if (profile) {
+    applyProfile(profile);
+    followerCount = profile.socialAccounts?.farcaster?.followerCount || 0;
+    document.getElementById('followerCount').textContent = fmtNum(followerCount);
+    document.getElementById('holdersVal').textContent   = '—';
+    document.getElementById('holdingsVal').textContent  = '—';
+    document.getElementById('followingCount').textContent = '—';
+  } else {
+    applyProfile({ displayName: CONFIG.displayName, bio: CONFIG.bio, website: CONFIG.website });
+  }
+
+  // ウォレット未接続時はデモグリッドを表示
+  document.getElementById('gridEl').innerHTML =
+    '<div class="zempty">ウォレットを接続するとNFTが表示されます</div>';
+  document.getElementById('viewLabel').textContent = '—';
+})();
+</script>
+</body>
+</html>
