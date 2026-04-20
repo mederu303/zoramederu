@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/zora/:path*",
+      "destination": "https://api-zora.reservoir.tools/:path*"
+    },
+    {
+      "source": "/api/base/:path*",
+      "destination": "https://api-base.reservoir.tools/:path*"
+    }
+  ]
+}
